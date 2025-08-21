@@ -6,7 +6,7 @@
     <title>Công cụ chuyển đổi Excel sang JSON</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Library to read Excel files -->
+    <!-- Thư viện để đọc file Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -23,13 +23,13 @@
 </head>
 <body class="bg-slate-100 text-slate-800 p-4 md:p-8">
 
-    <div class="max-w-4xl mx-auto bg-white p-8 rounded-2xl shadow-lg">
+    <div class="max-w-4xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-lg">
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold text-slate-900">Công Cụ Chuyển Đổi Excel sang JSON</h1>
-            <p class="text-slate-500 mt-2">Tải file Excel lên. Tên chủ đề sẽ được lấy trực tiếp từ tên sheet.</p>
+            <p class="text-slate-500 mt-2">Tải file Excel lên. Tên chủ đề sẽ được lấy từ tên sheet.</p>
         </div>
 
-        <!-- Step 1: File Input -->
+        <!-- Bước 1: Tải tệp lên -->
         <div class="mb-6">
             <label for="fileInput" class="block text-lg font-semibold mb-2 text-slate-700">Bước 1: Tải lên tệp Excel (.xlsx)</label>
             <div class="mt-2 flex justify-center rounded-lg border border-dashed border-slate-900/25 px-6 py-10">
@@ -49,15 +49,15 @@
             </div>
         </div>
 
-        <!-- Step 2: Process Control -->
+        <!-- Bước 2: Xử lý -->
         <div class="mb-8">
             <label class="block text-lg font-semibold mb-2 text-slate-700">Bước 2: Bắt đầu xử lý</label>
-            <button id="processBtn" class="w-full bg-blue-600 text-white font-bold py-4 px-6 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all duration-300 disabled:bg-slate-400 disabled:cursor-not-allowed">
+            <button id="processBtn" class="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all duration-300 disabled:bg-slate-400 disabled:cursor-not-allowed">
                 Bắt đầu chuyển đổi
             </button>
         </div>
 
-        <!-- Step 3: Progress and Output -->
+        <!-- Bước 3: Tiến trình và Kết quả -->
         <div>
             <label class="block text-lg font-semibold mb-2 text-slate-700">Bước 3: Theo dõi tiến trình và Tải về</label>
             <div class="w-full bg-slate-200 rounded-full h-4 mb-4">
@@ -65,22 +65,28 @@
             </div>
             <p id="progressText" class="text-center font-medium text-slate-600 mb-4">Sẵn sàng...</p>
             <div id="log-container" class="w-full h-64 bg-slate-900 text-white text-sm p-4 rounded-lg overflow-y-auto border border-slate-700"></div>
-            <button id="downloadBtn" class="mt-4 w-full bg-green-600 text-white font-bold py-4 px-6 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300 transition-all duration-300 disabled:bg-slate-400 disabled:cursor-not-allowed" disabled>
-                Tải về tệp vocabulary.json
-            </button>
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                 <button id="downloadBtn" class="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300 transition-all duration-300 disabled:bg-slate-400 disabled:cursor-not-allowed" disabled>
+                    Tải về tệp vocabulary.json
+                </button>
+                 <button id="copyBtn" class="w-full bg-sky-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-sky-700 focus:outline-none focus:ring-4 focus:ring-sky-300 transition-all duration-300 disabled:bg-slate-400 disabled:cursor-not-allowed" disabled>
+                    Sao chép vào Clipboard
+                </button>
+            </div>
         </div>
     </div>
 
     <script>
         const processBtn = document.getElementById('processBtn');
         const downloadBtn = document.getElementById('downloadBtn');
+        const copyBtn = document.getElementById('copyBtn');
         const fileInput = document.getElementById('fileInput');
         const fileNameDisplay = document.getElementById('fileName');
         const progressBar = document.getElementById('progressBar');
         const progressText = document.getElementById('progressText');
         const logContainer = document.getElementById('log-container');
 
-        let finalJson = {};
+        let finalJson = [];
         let uploadedFile = null;
 
         fileInput.addEventListener('change', (e) => {
@@ -88,6 +94,11 @@
             if (uploadedFile) {
                 fileNameDisplay.textContent = `Tệp đã chọn: ${uploadedFile.name}`;
                 log(`Đã chọn tệp: ${uploadedFile.name}`, 'info');
+                // Reset UI
+                progressBar.style.width = '0%';
+                progressText.textContent = 'Sẵn sàng...';
+                downloadBtn.disabled = true;
+                copyBtn.disabled = true;
             }
         });
 
@@ -101,11 +112,15 @@
         }
 
         processBtn.addEventListener('click', async () => {
-            if (!uploadedFile) { alert('Vui lòng tải lên một tệp Excel.'); return; }
+            if (!uploadedFile) {
+                log('Vui lòng tải lên một tệp Excel trước.', 'error');
+                return;
+            }
 
             processBtn.disabled = true;
             downloadBtn.disabled = true;
-            finalJson = {};
+            copyBtn.disabled = true;
+            finalJson = [];
             logContainer.innerHTML = '';
             log('Bắt đầu đọc tệp Excel...', 'info');
 
@@ -120,85 +135,111 @@
 
                     for (const sheetName of workbook.SheetNames) {
                         const category = sheetName.trim();
-                        log(`Đang đọc sheet: "${category}"`, 'info');
-
                         const worksheet = workbook.Sheets[sheetName];
+                        if (!worksheet) continue;
+
                         const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                         
-                        for(const row of jsonRows) {
-                            allRows.push({ category, rowData: row });
+                        if (jsonRows.length > 1) {
+                            const dataRows = jsonRows.slice(1); // Bỏ qua dòng tiêu đề
+                            log(`Sheet "${category}" có ${dataRows.length} dòng dữ liệu.`, 'info');
+                            for(const row of dataRows) {
+                                // Chỉ thêm các dòng có dữ liệu
+                                if (row && row.length > 0) {
+                                    allRows.push({ category, rowData: row });
+                                }
+                            }
+                        } else {
+                             log(`Sheet "${category}" không có dòng dữ liệu nào.`, 'warn');
                         }
                     }
                     
+                    if (allRows.length === 0) {
+                        log('Không tìm thấy dữ liệu hợp lệ trong tệp Excel.', 'error');
+                        processBtn.disabled = false;
+                        return;
+                    }
+
                     log(`Đã đọc xong file. Tổng số dòng cần xử lý: ${allRows.length}`, 'info');
 
                     const totalRows = allRows.length;
                     let processedCount = 0;
+                    
+                    const vocabularyMap = new Map();
 
                     for (const item of allRows) {
                         const { category, rowData } = item;
                         processedCount++;
                         
-                        if (processedCount % 20 === 0 || processedCount === totalRows) {
+                        // Cập nhật thanh tiến trình mượt hơn
+                        if (processedCount % 10 === 0 || processedCount === totalRows) {
                             const percentage = Math.round((processedCount / totalRows) * 100);
                             progressBar.style.width = `${percentage}%`;
                             progressText.textContent = `Đang xử lý... ${processedCount} / ${totalRows} dòng`;
-                            await new Promise(resolve => setTimeout(resolve, 0));
+                            await new Promise(resolve => setTimeout(resolve, 0)); // Cho phép UI cập nhật
                         }
                         
-                        if (!rowData || rowData.length < 4) {
+                        if (!rowData) {
                             continue;
                         };
 
+                        // Logic đọc cột theo yêu cầu
                         const word = rowData[0] ? String(rowData[0]).trim() : '';
                         const type = rowData[1] ? String(rowData[1]).trim() : '';
                         const ipa = rowData[2] ? String(rowData[2]).trim() : '';
                         const meaning = rowData[3] ? String(rowData[3]).trim() : '';
+                        const explanation = rowData[4] ? String(rowData[4]).trim() : '';
                         
-                        if (!word || !type || !ipa || !meaning) {
-                            log(`Bỏ qua dòng ${processedCount} do thiếu thông tin cơ bản (A-D).`, 'warn');
+                        // THAY ĐỔI: Chỉ bỏ qua hàng nếu Cột 1 (từ vựng) bị trống.
+                        // Các ô khác nếu trống sẽ được lưu dưới dạng chuỗi rỗng.
+                        if (!word) {
+                            log(`Bỏ qua dòng ${processedCount} do không có từ vựng ở Cột 1.`, 'warn');
                             continue;
                         }
                         
+                        // Vòng lặp lấy các cặp ví dụ, bắt đầu từ cột 6 (index 5)
                         const examples = [];
-                        for (let i = 4; i < rowData.length; i += 2) {
+                        for (let i = 5; i < rowData.length; i += 2) {
                             const exampleEn = rowData[i] ? String(rowData[i]).trim() : '';
                             const exampleVi = rowData[i + 1] ? String(rowData[i + 1]).trim() : '';
                             if (exampleEn && exampleVi) {
                                 examples.push({ en: exampleEn, vi: exampleVi });
                             } else {
-                                break;
+                                // Tự động dừng khi không còn cặp ví dụ hợp lệ
+                                break; 
                             }
                         }
                         
-                        if (examples.length === 0) {
-                            log(`Từ "${word}" ở dòng ${processedCount} không có ví dụ hợp lệ nào.`, 'warn');
-                        }
-
-                        if (!finalJson[category]) {
-                            finalJson[category] = {};
-                        }
-
-                        if (!finalJson[category][word]) {
-                            finalJson[category][word] = {
+                        const uniqueKey = `${category}-${word.toLowerCase()}`;
+                        
+                        if (!vocabularyMap.has(uniqueKey)) {
+                            vocabularyMap.set(uniqueKey, {
+                                category: category,
+                                word: word,
                                 phonetic: ipa,
                                 meanings: []
-                            };
+                            });
                         }
 
-                        finalJson[category][word].meanings.push({
+                        const wordEntry = vocabularyMap.get(uniqueKey);
+                        wordEntry.meanings.push({
                             type: type,
                             meaning: meaning,
+                            explanation: explanation,
                             examples: examples
                         });
                     }
 
-                    log('Hoàn thành! Tệp JSON đã sẵn sàng để tải về.', 'info');
+                    finalJson = Array.from(vocabularyMap.values());
+
+                    log(`Hoàn thành! Đã tạo ${finalJson.length} mục từ vựng. Sẵn sàng tải về.`, 'success');
                     progressText.textContent = `Hoàn tất! Đã xử lý ${totalRows} dòng.`;
-                    processBtn.disabled = false;
                     downloadBtn.disabled = false;
+                    copyBtn.disabled = false;
                 } catch (error) {
                     log(`Đã xảy ra lỗi nghiêm trọng: ${error.message}`, 'error');
+                    console.error(error);
+                } finally {
                     processBtn.disabled = false;
                 }
             };
@@ -212,19 +253,47 @@
         });
 
         downloadBtn.addEventListener('click', () => {
-            if (Object.keys(finalJson).length === 0) {
-                alert('Không có dữ liệu để tải về. Vui lòng xử lý dữ liệu trước.');
+            if (!finalJson || finalJson.length === 0) {
+                log('Không có dữ liệu để tải về.', 'warn');
                 return;
             }
 
-            const dataStr = JSON.stringify(finalJson, null, 4);
+            const dataStr = JSON.stringify(finalJson, null, 4); // Dùng 4 dấu cách để JSON dễ đọc
             const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
 
             const linkElement = document.createElement('a');
             linkElement.setAttribute('href', dataUri);
             linkElement.setAttribute('download', 'vocabulary.json');
+            document.body.appendChild(linkElement); // Cần thiết cho Firefox
             linkElement.click();
-            log('Đã bắt đầu tải về tệp vocabulary.json', 'info');
+            document.body.removeChild(linkElement);
+            log('Đã bắt đầu tải về tệp vocabulary.json', 'success');
+        });
+
+        copyBtn.addEventListener('click', () => {
+            if (!finalJson || finalJson.length === 0) {
+                 log('Không có dữ liệu để sao chép.', 'warn');
+                 return;
+            }
+            
+            const dataStr = JSON.stringify(finalJson, null, 4);
+            // Sử dụng một textarea tạm thời để đảm bảo hoạt động trên nhiều trình duyệt
+            const textArea = document.createElement("textarea");
+            textArea.value = dataStr;
+            textArea.style.position = "fixed"; // Ngăn cuộn trang
+            textArea.style.left = "-9999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                log('Đã sao chép thành công vào clipboard!', 'success');
+                copyBtn.textContent = 'Đã sao chép!';
+                setTimeout(() => { copyBtn.textContent = 'Sao chép vào Clipboard'; }, 2000);
+            } catch (err) {
+                log('Lỗi khi sao chép: ' + err, 'error');
+            }
+            document.body.removeChild(textArea);
         });
     </script>
 </body>
